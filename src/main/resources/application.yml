@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: enterprise-event-processing-platform
+  datasource:
+    url: jdbc:postgresql://localhost:5432/event_platform
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: event-platform-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  jwt:
+    secret: change-this-secret-key-to-a-very-long-production-secret
+    expiration-ms: 86400000
+  kafka:
+    topic: event-processing-topic
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+server:
+  port: 8080
