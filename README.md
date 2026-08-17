@@ -37,13 +37,43 @@ The project uses PostgreSQL + pgvector for operational knowledge such as runbook
 
 Flow:
 
-```text
-Failed event
-    -> sanitized failure context
-    -> embedding / pgvector retrieval
-    -> top runbooks/incidents
-    -> structured LLM analysis
-    -> persisted EventAiAnalysis
+```mermaid
+flowchart LR
+  FE[Failed event] --> AC[After-commit listener]
+  AC --> PENDING[PENDING]
+  PENDING --> PROCESSING[PROCESSING]
+  PROCESSING --> SAN[Sanitize payload]
+  PROCESSING --> RAG[RAG retrieval]
+  SAN --> LLM[Structured LLM analysis]
+  RAG --> LLM
+  LLM --> COMPLETED[COMPLETED]
+  LLM --> FALLBACK[FALLBACK]
+  LLM --> FAILED[FAILED]
+  COMPLETED --> PERSIST[Persist EventAiAnalysis]
+  FALLBACK --> PERSIST
+  FAILED --> PERSIST
+```
+
+## End-to-end flow
+
+```mermaid
+flowchart LR
+  C[Client] --> API[POST /api/events]
+  API --> PROC[Ingest & validate]
+  PROC --> KAFKA[Produce to Kafka]
+  KAFKA --> CONSUMER[Consumer / Processor]
+  CONSUMER --> DB[Persist audit & status]
+  CONSUMER --> ACK[Commit offsets]
+  CONSUMER --> SUCCESS[Processed Successfully]
+  CONSUMER --> FAILURE[Failure / Dead-letter]
+  FAILURE --> AFTERCOMMIT[After-commit listener / Async AI path]
+  AFTERCOMMIT --> SAN2[Sanitize payload]
+  AFTERCOMMIT --> RAG2[RAG retrieval]
+  SAN2 --> LLM2[Structured LLM analysis]
+  RAG2 --> LLM2
+  LLM2 --> PERSIST2[Persist EventAiAnalysis]
+  PERSIST2 --> WS[WebSocket & Metrics]
+  SUCCESS --> WS
 ```
 
 Seeded runbooks cover Kafka connectivity, downstream timeouts, and data-quality failures. If no embedding is available, retrieval safely degrades to keyword matching. After configuring `OPENAI_API_KEY`, call the reindex endpoint to generate embeddings for documents that do not yet have vectors.
