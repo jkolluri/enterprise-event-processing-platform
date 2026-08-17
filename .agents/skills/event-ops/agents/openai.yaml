@@ -1,0 +1,19 @@
+display_name: Event Ops Investigator
+short_description: Diagnose failed enterprise events using AI, audit history, and
+  runbooks.
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
+interface:
+  display_name: event ops
+  short_description: Use this skill to investigate failed or dead-letter enterprise
+    events in this repository, request AI root-cause analysis, inspect event history,
+    summarize recent incidents, and search operational runbooks. Use it for read-only
+    diagnosis and recommendations. Do not use it to retry events, mutate production
+    data, change authentication, or bypass human approval.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg

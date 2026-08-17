@@ -1,45 +1,146 @@
-# Enterprise Event Processing Platform
+# Enterprise Event Processing Platform — AI Operations Edition
 
-A professional Java backend portfolio project that demonstrates real-time event ingestion, asynchronous processing, audit tracking, retry handling, and live WebSocket updates.
+A Java 21 / Spring Boot platform for event ingestion, Kafka processing, audit tracking, retries, WebSocket updates, and AI-assisted operations.
 
-This project is designed to look like an enterprise backend system used in payment, reconciliation, banking, trading, logistics, or order-processing platforms.
+## What the AI layer does
 
-## Why This Project Stands Out
+When an event fails, the application commits the event failure first and then asynchronously starts AI analysis. The AI path never blocks or owns the Kafka processing transaction.
 
-Most portfolio projects are simple CRUD apps. This project demonstrates skills interviewers care about:
+The analysis produces structured fields:
 
-- Java 21 and Spring Boot 3
-- REST API design
-- Spring Security with JWT
-- Kafka-based asynchronous processing
-- PostgreSQL persistence
-- Event audit history
-- Retry and dead-letter handling
-- WebSocket/STOMP live updates
-- Redis-ready architecture
-- Docker Compose local infrastructure
-- GitHub Actions CI
-- Swagger/OpenAPI documentation
-- Unit and integration testing foundation
+- root cause
+- error category
+- retry recommendation
+- remediation
+- confidence
+- model
+- input/output token usage
+- latency
+- lifecycle status (`PENDING`, `PROCESSING`, `COMPLETED`, `FALLBACK`, `FAILED`)
 
-## Architecture
+If OpenAI is disabled/unavailable, the platform uses a deterministic rule-based fallback. AI never automatically retries, replays, reprocesses, restarts, or modifies production state.
 
-```mermaid
-flowchart LR
-    Client[Client / Dashboard] --> API[Spring Boot API]
-    API --> DB[(PostgreSQL)]
-    API --> Kafka[Kafka Topic]
-    Kafka --> Processor[Event Processor]
-    Processor --> DB
-    Processor --> WebSocket[WebSocket Broker]
-    WebSocket --> Dashboard[Live Status Dashboard]
+## AI safety and production controls
+
+- Sensitive JSON keys, emails, SSNs, and card-like values are redacted before model calls.
+- Payloads are capped with `AI_MAX_PAYLOAD_CHARS`.
+- Event payload/error/knowledge content is treated as untrusted data rather than instructions.
+- Structured Outputs (JSON Schema) are used for failure analysis and operations-assistant responses.
+- OpenAI calls have connection/read timeouts, bounded retry, and a circuit breaker.
+- Duplicate automatic analyses are prevented with an idempotency key based on event ID + retry count + analysis type.
+- AI calls are outside long database transactions.
+- LLM request count, failure count, fallback count, duplicate skips, latency, embedding calls, and token usage are published through Micrometer/Prometheus.
+
+## RAG / operational knowledge
+
+The project uses PostgreSQL + pgvector for operational knowledge such as runbooks, known errors, and historical incident notes.
+
+Flow:
+
+```text
+Failed event
+    -> sanitized failure context
+    -> embedding / pgvector retrieval
+    -> top runbooks/incidents
+    -> structured LLM analysis
+    -> persisted EventAiAnalysis
 ```
 
-## Core Features
+Seeded runbooks cover Kafka connectivity, downstream timeouts, and data-quality failures. If no embedding is available, retrieval safely degrades to keyword matching. After configuring `OPENAI_API_KEY`, call the reindex endpoint to generate embeddings for documents that do not yet have vectors.
 
-### Authentication
-- Login endpoint returns JWT token.
-- Protected APIs require `Authorization: Bearer <token>`.
+## Read-only operations assistant
+
+`POST /api/ai/ops/ask` investigates recent failures using event state, stored AI analyses, and retrieved runbooks. It is intentionally read-only. Mutating actions remain in normal application APIs and require explicit human action.
+
+Example:
+
+```json
+{
+  "question": "Why are payment events failing in the last 30 minutes?",
+  "minutes": 30
+}
+```
+
+## Main APIs
+
+```text
+POST /api/events
+GET  /api/events
+GET  /api/events/{eventId}
+GET  /api/events/{eventId}/audit
+POST /api/events/{eventId}/retry
+
+POST /api/ai/events/{eventId}/analyze?force=false
+GET  /api/ai/events/{eventId}/analyses
+GET  /api/ai/incidents/summary?minutes=60
+
+POST /api/ai/knowledge
+GET  /api/ai/knowledge
+GET  /api/ai/knowledge/search?query=timeout&limit=5
+POST /api/ai/knowledge/reindex
+
+POST /api/ai/ops/ask
+GET  /api/ai/ops/failures?minutes=60
+GET  /api/ai/ops/events/{eventId}
+GET  /api/ai/ops/events/{eventId}/history
+```
+
+## Stack
+
+- Java 21
+- Spring Boot 3.3.13
+- Spring Web / Security / JPA / Validation / WebSocket
+- Apache Kafka
+- PostgreSQL 16 + pgvector
+- Redis
+- OpenAI Responses API + Embeddings API
+- Resilience4j
+- Micrometer + Prometheus
+- Flyway
+- Docker Compose
+
+## Start infrastructure
+
+```bash
+docker compose up -d
+```
+
+This starts PostgreSQL/pgvector, Redis, Kafka/Zookeeper, and Prometheus.
+
+## Configure AI
+
+```bash
+export OPENAI_API_KEY="your-key"
+export OPENAI_MODEL="gpt-5-mini"
+export OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
+```
+
+The application also works without an API key; failure analysis then uses deterministic fallback rules.
+
+## Run
+
+```bash
+mvn clean test
+mvn spring-boot:run
+```
+
+Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+Prometheus metrics endpoint (JWT-protected by default):
+
+```text
+http://localhost:8080/actuator/prometheus
+```
+
+Prometheus UI:
+
+```text
+http://localhost:9090
+```
 
 Demo credentials:
 
@@ -48,120 +149,77 @@ username: admin
 password: admin123
 ```
 
-### Event Ingestion
-Submit business events such as payments, reconciliation records, order updates, or transaction messages.
+For real deployment, replace the demo account and secret with your identity provider / secret manager.
 
-Status flow:
+## Useful AI metrics
 
-```text
-RECEIVED -> PROCESSING -> SUCCESS / FAILED -> RETRYING -> DEAD_LETTER
-```
-
-### Async Processing
-Events are published to Kafka and processed by a separate consumer component.
-
-### Retry Handling
-Failed events can be retried manually through the API.
-
-### Audit History
-Every status transition is stored in an audit table.
-
-### Real-Time Updates
-The processor publishes event status updates through WebSocket/STOMP on:
+Micrometer normalizes dotted metric names for the Prometheus endpoint. Important meters include:
 
 ```text
-/topic/events
+ai.analysis.requests
+ai.analysis.failures
+ai.analysis.fallbacks
+ai.analysis.duplicate.skips
+ai.analysis.latency
+ai.tokens.input
+ai.tokens.output
+ai.embedding.requests
+ai.embedding.failures
 ```
 
-## Tech Stack
-
-| Area | Technology |
-|---|---|
-| Language | Java 21 |
-| Framework | Spring Boot 3 |
-| Security | Spring Security + JWT |
-| Database | PostgreSQL |
-| Messaging | Kafka |
-| Cache | Redis |
-| Real-time | WebSocket/STOMP |
-| API Docs | Swagger/OpenAPI |
-| Build | Maven |
-| DevOps | Docker, Docker Compose, GitHub Actions |
-| Testing | JUnit 5, Mockito, Testcontainers |
-
-## Run Locally
-
-### 1. Start infrastructure
-
-```bash
-docker compose up -d
-```
-
-### 2. Run the application
-
-```bash
-mvn spring-boot:run
-```
-
-### 3. Open Swagger
+## AI analysis lifecycle
 
 ```text
-http://localhost:8080/swagger-ui/index.html
+Event FAILED / DEAD_LETTER
+        |
+        | transaction commits
+        v
+AFTER_COMMIT event listener
+        |
+        v
+PENDING -> PROCESSING
+        |
+        +-> RAG retrieval
+        +-> sanitized model request
+        |
+        +-> COMPLETED (LLM result)
+        |
+        +-> FALLBACK (deterministic result)
+        |
+        +-> FAILED (unexpected application error)
 ```
 
-### 4. Check health
+## Human-in-the-loop rule
+
+AI output is advisory. A retry recommendation is never an execution command. `POST /api/events/{eventId}/retry` remains a separate explicit action.
+
+## Agent Skill: Event Ops Investigator
+
+This repository includes a repo-scoped Agent Skill at:
 
 ```text
-http://localhost:8080/actuator/health
+.agents/skills/event-ops/
 ```
 
-## API Quick Start
+Agents that support the Agent Skills format can discover the `event-ops` skill from the repository. In Codex, ask to use `$event-ops` (or ask it to investigate event failures) while working in this repo.
 
-### Login
+The skill is intentionally **read-only for operational state**: it can inspect failures, event history, AI analyses, incident summaries, and RAG runbooks, and it can request advisory AI analysis. It never executes the event retry endpoint.
+
+You can also run the bundled helper directly:
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+.agents/skills/event-ops/scripts/event-ops.sh failures 60
+.agents/skills/event-ops/scripts/event-ops.sh incident 60
+.agents/skills/event-ops/scripts/event-ops.sh ask "Why are payment events failing?" 30
+.agents/skills/event-ops/scripts/event-ops.sh knowledge "Kafka broker disconnected" 5
 ```
 
-### Create Event
+Optional configuration:
 
 ```bash
-curl -X POST http://localhost:8080/api/events \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"correlationId":"TXN-1001","eventType":"PAYMENT","payload":"{\"amount\":250}"}'
+export EVENT_PLATFORM_URL=http://localhost:8080
+export EVENT_PLATFORM_USER=admin
+export EVENT_PLATFORM_PASSWORD=admin123
 ```
 
-### Get Failed Events
-
-```bash
-curl -X GET "http://localhost:8080/api/events?status=FAILED" \
-  -H "Authorization: Bearer <token>"
-```
-
-### Retry Event
-
-```bash
-curl -X POST http://localhost:8080/api/events/<event-id>/retry \
-  -H "Authorization: Bearer <token>"
-```
-
-## Suggested Resume Bullet
-
-> Built an enterprise event processing platform using Java 21, Spring Boot, Kafka, PostgreSQL, Redis, WebSocket, and Docker to process transaction events asynchronously with audit tracking, retry handling, dead-letter management, JWT security, and real-time status updates.
-
-## Suggested Interview Explanation
-
-This project simulates a real enterprise backend platform where incoming business events are accepted through REST APIs, stored in PostgreSQL, published to Kafka, processed asynchronously, audited at every state transition, and pushed to users in real time using WebSocket/STOMP. It demonstrates backend design, distributed systems basics, operational recovery, and production-style engineering practices.
-
-## Future Improvements
-
-- Add React dashboard
-- Add role-based access control
-- Add Prometheus and Grafana dashboards
-- Add DLQ Kafka topic
-- Add Flyway database migrations
-- Add full Testcontainers integration tests
-- Add Kubernetes deployment manifests
+For real deployments, provide credentials through your secret-management mechanism rather than committing them to Git.

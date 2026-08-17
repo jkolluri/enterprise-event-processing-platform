@@ -2,6 +2,7 @@ spring:
   application:
     name: enterprise-event-processing-platform
   datasource:
+<<<<<<< HEAD
     url: jdbc:postgresql://localhost:5432/event_platform
     username: postgres
     password: postgres
@@ -13,6 +14,26 @@ spring:
     bootstrap-servers: localhost:9092
     consumer:
       group-id: event-platform-group
+=======
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/eventdb}
+    username: ${DB_USERNAME:eventuser}
+    password: ${DB_PASSWORD:eventpass}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: event-platform
+>>>>>>> f6eecfd (Initial commit)
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -21,6 +42,7 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
   data:
     redis:
+<<<<<<< HEAD
       host: localhost
       port: 6379
 
@@ -30,11 +52,59 @@ app:
     expiration-ms: 86400000
   kafka:
     topic: event-processing-topic
+=======
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+>>>>>>> f6eecfd (Initial commit)
 
 management:
   endpoints:
     web:
       exposure:
+<<<<<<< HEAD
         include: health,info,metrics
 server:
   port: 8080
+=======
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      openai:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    instances:
+      openai:
+        max-attempts: 2
+        wait-duration: 500ms
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+
+app:
+  kafka:
+    event-topic: ${EVENT_TOPIC:business-events}
+  ai:
+    enabled: ${AI_ENABLED:true}
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:gpt-5-mini}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${AI_READ_TIMEOUT_MS:15000}
+    max-payload-chars: ${AI_MAX_PAYLOAD_CHARS:10000}
+    rag:
+      enabled: ${AI_RAG_ENABLED:true}
+      max-content-chars: ${AI_RAG_MAX_CONTENT_CHARS:20000}
+  security:
+    demo-user: ${DEMO_USER:admin}
+    demo-password: ${DEMO_PASSWORD:admin123}
+    jwt-secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-1234567890}
+>>>>>>> f6eecfd (Initial commit)
