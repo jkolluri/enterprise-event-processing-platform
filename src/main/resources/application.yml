@@ -2,25 +2,13 @@ spring:
   application:
     name: enterprise-event-processing-platform
   datasource:
-<<<<<<< HEAD
-    url: jdbc:postgresql://localhost:5432/event_platform
-    username: postgres
-    password: postgres
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: event-platform-group
-=======
     url: ${DB_URL:jdbc:postgresql://localhost:5432/eventdb}
     username: ${DB_USERNAME:eventuser}
     password: ${DB_PASSWORD:eventpass}
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
@@ -33,7 +21,6 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: event-platform
->>>>>>> f6eecfd (Initial commit)
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -42,30 +29,16 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
   data:
     redis:
-<<<<<<< HEAD
-      host: localhost
-      port: 6379
-
-app:
-  jwt:
-    secret: change-this-secret-key-to-a-very-long-production-secret
-    expiration-ms: 86400000
-  kafka:
-    topic: event-processing-topic
-=======
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
->>>>>>> f6eecfd (Initial commit)
+
+server:
+  port: 8080
 
 management:
   endpoints:
     web:
       exposure:
-<<<<<<< HEAD
-        include: health,info,metrics
-server:
-  port: 8080
-=======
         include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
   metrics:
     tags:
@@ -90,7 +63,11 @@ resilience4j:
           - org.springframework.web.client.HttpServerErrorException
 
 app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-key-to-a-very-long-production-secret}
+    expiration-ms: 86400000
   kafka:
+    topic: ${APP_KAFKA_TOPIC:event-processing-topic}
     event-topic: ${EVENT_TOPIC:business-events}
   ai:
     enabled: ${AI_ENABLED:true}
@@ -107,4 +84,3 @@ app:
     demo-user: ${DEMO_USER:admin}
     demo-password: ${DEMO_PASSWORD:admin123}
     jwt-secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-1234567890}
->>>>>>> f6eecfd (Initial commit)
