@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 
-@Service
+@Service("authJwtService")
 public class JwtService {
     private final SecretKey key;
     public JwtService(@Value("${app.security.jwt-secret}") String secret) {

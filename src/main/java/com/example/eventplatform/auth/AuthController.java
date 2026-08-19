@@ -6,8 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-@RestController
-@RequestMapping("/api/auth")
+/* @RestController
+@RequestMapping("/api/auth") */
 public class AuthController {
     private final JwtService jwtService;
     private final String demoUser;

@@ -8,7 +8,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-@Service
+@Service("securityJwtService")
 public class JwtService {
     @Value("${app.jwt.secret}")
     private String secret;
